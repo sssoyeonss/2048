@@ -10,7 +10,7 @@ SERVER_IP = "112.137.129.136"
 SERVER_PORT = 1234
 REFRESH_RATE = 0.05
 DEFAULT_TIMEOUT = 10.0
-
+DEFAULT_SLEEP = 0.1
 
 class Moves_class:
     '''Represent moves that can be made'''
@@ -36,6 +36,8 @@ class Board:
         row = map(int, data.split())
         self.board.append(list(row))
 
+    def full(self) -> bool:
+        return len(self.board[0]) == len(self.board)
 
 class Game:
     '''Represents the returned results about a game.
@@ -101,17 +103,15 @@ class ClientBuffer(deque):
             self.append(Result(line))
             self.__stopped.set()
         else:
-            if self.__len__() and isinstance(self.__getitem__(-1), Board):
-                self.__getitem__(-1).add_row(line)
+            if self.__len__() and isinstance(self[-1], Board) and not self[-1].full():
+                self[-1].add_row(line)
             else:
                 self.append(Board(line))
 
     def __get_buffer(self) -> None:
         '''Get the current buffer and flushes it to the FIFO queue.
         This function should be called every few moments.'''
-        print("GETTING BUFFER")
         new_data = self.__sock.recv(1024).decode()
-        print(new_data)
         if new_data == "": return
         for line in new_data.splitlines():
             self.__append_line(line)
@@ -142,55 +142,24 @@ class Client:
 
         self.account, self.quiz, self.timeout = account_name, quiz_name, timeout
         self.__login()
-        self.__agetting = False
 
         self.__buffer = ClientBuffer(self.__sock)
         self.__buffer.start_looping()
 
     def get_state(self) -> Board | Game | Result:
         '''Get the first state from the FIFO queue'''
-        if self.__agetting:
-            raise RuntimeError("An async query is still pending")
-        steps = int(self.timeout/0.5)
+        steps = int(self.timeout/DEFAULT_SLEEP)
         for _ in range(steps):
             if self.__buffer.APIException != None: raise self.__buffer.APIException
             if not self.playing: raise IndexError("The game has finished")
 
             if len(self.__buffer): break
-            sleep(0.5)
+            sleep(DEFAULT_SLEEP)
         else:
             raise TimeoutError(
                 f"Unable to retrieve any data after \
-waiting for {steps*0.5}s. Have you made any move?")
+waiting for {steps*DEFAULT_SLEEP}s. Have you made any move?")
 
         if isinstance(self.__buffer[0], Result):
             self.playing = False
         return self.__buffer.popleft()
-
-    async def aget_state(self) -> Board | Game | Result:
-        '''get_state but asynchronously'''
-        if self.__agetting:
-            raise RuntimeError(
-                "You're not allowed to do multiple aget_state \
-queries asynchronously. Use the synchronized version instead.")
-        self.__agetting = True
-
-        steps = int(self.timeout/0.5)
-        for _ in range(steps):
-            if self.__buffer.APIException != None: raise self.__buffer.APIException
-            if not self.playing: raise IndexError("The game has finished")
-
-            if len(self.__buffer): break
-            await asyncio.sleep(0.5)
-        else:
-            raise TimeoutError(
-                f"Unable to retrieve any data after \
-waiting for {steps*0.5}s. Have you made any move?")
-
-        if isinstance(self.__buffer[0], Result):
-            self.playing = False
-        self.__agetting = False
-        return self.__buffer.popleft()
-
-    def make_move(self, move: str) -> None:
-        self.__raw_send(move)
