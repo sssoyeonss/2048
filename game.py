@@ -141,7 +141,8 @@ class Client:
         self.__buffer.start_looping()
 
     def get_state(self) -> Board | Game | Result:
-        for _ in range(int(self.timeout / 0.5)):
+        steps = int(self.timeout/0.5)
+        for _ in range(steps):
             if self.__buffer.APIException != None:
                 raise self.__buffer.APIException
             if not self.playing:
@@ -150,8 +151,9 @@ class Client:
                 break
             sleep(0.5)
         else:
-            raise TimeoutError("Unable to retrieve any data. Have you made any move?")
-        
+            raise TimeoutError(
+                f"Unable to retrieve any data after waiting for {steps*0.5}s. Have you made any move?")
+
         if isinstance(self.__buffer[0], Result):
             self.playing = False
         return self.__buffer.popleft()
