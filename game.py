@@ -130,7 +130,6 @@ class Client:
 
     def __login(self):
         self.__raw_send(self.account)
-        sleep(0.2)
         self.__raw_send(self.quiz)
 
     def __init__(self, account_name: str, quiz_name: str,
