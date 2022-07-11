@@ -9,6 +9,10 @@ Simply clone with '''git clone'''
 
 ## Usage
 
-The game.py provides a class named Client. This represents a game, and provides methods such as make_move and get_state
-The get_state functions gets data from a deque, each object corresponds to a response from the server (Board, Game, or Result)
+The game.py provides a class named Client. 
+
+This represents a game, and provides methods such as make_move and get_state.
+
+The get_state functions gets data from a deque, each object corresponds to a response from the server (Board, Game, or Result).
+
 For more information, refer to the source codes provided
