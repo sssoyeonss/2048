@@ -1,9 +1,10 @@
 '''Library for interacting with 2048 server'''
 import socket
-from collections import deque
 from time import sleep
 from typing import Callable
+from collections import deque
 from threading import Thread, Event
+import asyncio
 
 SERVER_IP = "112.137.129.136"
 SERVER_PORT = 1234
@@ -14,19 +15,10 @@ DEFAULT_TIMEOUT = 10.0
 class Moves_class:
     '''Represent moves that can be made'''
     L, U, R, D = "left", "up", "right", "down"
-
-    def __getitem__(self, idx):
-        if idx == 0:
-            return self.L
-        elif idx == 1:
-            return self.U
-        elif idx == 2:
-            return self.R
-        elif idx == 3:
-            return self.D
-        else:
-            raise IndexError(f"Trying to perform out of bounds move {idx}")
-
+    ALL_MOVES = [L, R, U, D]
+    def __getitem__(self, idx: int) -> str:
+        '''Return moves based on index given'''
+        return self.ALL_MOVES[idx]
 
 MOVES = Moves_class()
 
@@ -50,6 +42,7 @@ class Game:
     Upon receiving this object, the current game should be considered ended.'''
 
     def __init__(self, data: str) -> None:
+        '''Assigns the number of moves to the class'''
         self.move = data.split()[3]
         self.move = int(self.move)
 
@@ -59,23 +52,30 @@ class Result:
     Upon receiving this object, the interaction should be considered closed.'''
 
     def __init__(self, data: str) -> None:
+        '''Assigns the returned points to the class'''
         self.point = data.split()[1][0: -1]
         self.point = int(self.point)
 
 
 class RepeatRun(Thread):
-    def run(self):
+    '''Class to repeatedly run a function'''
+    def run(self) -> None:
+        '''Runs the loop'''
         while not self.__stopped.wait(REFRESH_RATE):
             self.__function()
 
     def __init__(self, function: Callable, stopped: Event) -> None:
+        '''Specifies the function and stop trigger'''
         super().__init__()
         self.__function = function
         self.__stopped = stopped
 
 
 class ClientBuffer(deque):
+    '''The Buffer of a Client.
+    Updates every few moments and push all data to a FIFO queue'''
     def __init__(self, sock: socket.socket) -> None:
+        '''Initializes the loop and runs it'''
         super().__init__()
         self.__sock = sock
         self.__stopped = Event()
@@ -84,12 +84,13 @@ class ClientBuffer(deque):
         self.APIException = None
 
     def __append_line(self, line: str) -> None:
-        if "ID" in line or "Identified" in line:
-            return
-        elif "Invalid" in line:
+        '''Appends a line from buffer to the FIFO queue'''
+        if "Invalid" in line:
             self.__stopped.set()
             self.APIException = ValueError(
                 f"You're dumb. The server responded with {line}")
+        elif "ID" in line or "Identified" in line:
+            return
         elif "Timed" in line:
             self.__stopped.set()
             self.APIException = TimeoutError(
@@ -105,14 +106,18 @@ class ClientBuffer(deque):
             else:
                 self.append(Board(line))
 
-    def __get_buffer(self):
+    def __get_buffer(self) -> None:
+        '''Get the current buffer and flushes it to the FIFO queue.
+        This function should be called every few moments.'''
+        print("GETTING BUFFER")
         new_data = self.__sock.recv(1024).decode()
-        if new_data == "":
-            return
+        print(new_data)
+        if new_data == "": return
         for line in new_data.splitlines():
             self.__append_line(line)
 
-    def start_looping(self):
+    def start_looping(self) -> None:
+        '''Starts the internal loop'''
         self.__loop.start()
 
 
@@ -125,6 +130,7 @@ class Client:
 
     def __login(self):
         self.__raw_send(self.account)
+        sleep(0.2)
         self.__raw_send(self.quiz)
 
     def __init__(self, account_name: str, quiz_name: str,
@@ -136,26 +142,54 @@ class Client:
 
         self.account, self.quiz, self.timeout = account_name, quiz_name, timeout
         self.__login()
+        self.__agetting = False
 
         self.__buffer = ClientBuffer(self.__sock)
         self.__buffer.start_looping()
 
     def get_state(self) -> Board | Game | Result:
+        '''Get the first state from the FIFO queue'''
+        if self.__agetting:
+            raise RuntimeError("An async query is still pending")
         steps = int(self.timeout/0.5)
         for _ in range(steps):
-            if self.__buffer.APIException != None:
-                raise self.__buffer.APIException
-            if not self.playing:
-                raise IndexError("The game has finished")
-            if len(self.__buffer):
-                break
+            if self.__buffer.APIException != None: raise self.__buffer.APIException
+            if not self.playing: raise IndexError("The game has finished")
+
+            if len(self.__buffer): break
             sleep(0.5)
         else:
             raise TimeoutError(
-                f"Unable to retrieve any data after waiting for {steps*0.5}s. Have you made any move?")
+                f"Unable to retrieve any data after \
+waiting for {steps*0.5}s. Have you made any move?")
 
         if isinstance(self.__buffer[0], Result):
             self.playing = False
+        return self.__buffer.popleft()
+
+    async def aget_state(self) -> Board | Game | Result:
+        '''get_state but asynchronously'''
+        if self.__agetting:
+            raise RuntimeError(
+                "You're not allowed to do multiple aget_state \
+queries asynchronously. Use the synchronized version instead.")
+        self.__agetting = True
+
+        steps = int(self.timeout/0.5)
+        for _ in range(steps):
+            if self.__buffer.APIException != None: raise self.__buffer.APIException
+            if not self.playing: raise IndexError("The game has finished")
+
+            if len(self.__buffer): break
+            await asyncio.sleep(0.5)
+        else:
+            raise TimeoutError(
+                f"Unable to retrieve any data after \
+waiting for {steps*0.5}s. Have you made any move?")
+
+        if isinstance(self.__buffer[0], Result):
+            self.playing = False
+        self.__agetting = False
         return self.__buffer.popleft()
 
     def make_move(self, move: str) -> None:
