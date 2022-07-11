@@ -11,7 +11,6 @@ with open("log.txt", "w") as log:
             move = game.MOVES[random.randint(0, 3)]
             log.write(f"{data.board}\n{move}\n")
             print(f"{data.board}\n{move}")
-            client.make_move("TF")
 
         elif isinstance(data, game.Game):
             log.write(f"Game ended. Move: {data.move}\n")
