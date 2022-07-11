@@ -4,18 +4,13 @@ account = input("ACCOUNT: ")
 quiz = input("QUIZ NAME (1, 2, 3): ")
 
 client = game.Client(account, quiz)
-
-while True:
-    print(f"BOARD\n{client.get_board()}")
-    # i = input("MOVE (L, R, U, D): ").upper()
-    i = random.choice("LRUD")
-    if i == "L":
-        client.move(game.L)
-    elif i == "R":
-        client.move(game.R)
-    elif i == "U":
-        client.move(game.U)
-    elif i == "D":
-        client.move(game.D)
-    else:
-        print("Invalid move. Move again")
+with open("log.txt", "w") as log:
+    while client.playing:
+        data = client.get_state()
+        if isinstance(data, game.Board):
+            log.write(f"{data.board}\nleft\n")
+            client.make_move(game.L)
+        elif isinstance(data, game.Game):
+            log.write(f"Game ended. Move: {data.move}\n")
+        elif isinstance(data, game.Result):
+            log.write(F"Session ended. Points: {data.point}")
