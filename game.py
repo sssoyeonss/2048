@@ -133,7 +133,7 @@ class Client:
 
     def __raw_send(self, data: str) -> None:
         '''Send a message to the server. This should not be used externally'''
-        self.__sock.send(data.encode())
+        self.__sock.send(f"{data}\n".encode())
 
     def __login(self):
         self.__raw_send(self.account)
