@@ -8,6 +8,7 @@ from threading import Thread, Event
 SERVER_IP = "112.137.129.136"
 SERVER_PORT = 1234
 REFRESH_RATE = 0.05
+DEFAULT_TIMEOUT = 10.0
 
 
 class Moves_class:
@@ -127,20 +128,20 @@ class Client:
         self.__raw_send(self.quiz)
 
     def __init__(self, account_name: str, quiz_name: str,
-                 ip: str = SERVER_IP, port: str = SERVER_PORT) -> None:
+                 ip: str = SERVER_IP, port: str = SERVER_PORT, timeout: float = DEFAULT_TIMEOUT) -> None:
         '''Initializes the session with the specified account name and quiz name'''
         self.__sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.__sock.connect((SERVER_IP, SERVER_PORT))
         self.playing = True
 
-        self.account, self.quiz = account_name, quiz_name
+        self.account, self.quiz, self.timeout = account_name, quiz_name, timeout
         self.__login()
 
         self.__buffer = ClientBuffer(self.__sock)
         self.__buffer.start_looping()
 
     def get_state(self) -> Board | Game | Result:
-        for _ in range(5):
+        for _ in range(int(self.timeout / 0.5)):
             if self.__buffer.APIException != None:
                 raise self.__buffer.APIException
             if not self.playing:
