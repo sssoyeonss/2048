@@ -8,26 +8,43 @@ from threading import Thread, Event
 SERVER_IP = "112.137.129.136"
 SERVER_PORT = 1234
 REFRESH_RATE = 0.05
-L, R, U, D = "left", "right", "up", "down"
 
 
+class Moves_class:
+    '''Represent moves that can be made'''
+    L, U, R, D = "left", "up", "right", "down"
+    def __getitem__(self, idx):
+        if idx == 0: return self.L
+        elif idx == 1: return self.U
+        elif idx == 2: return self.R
+        elif idx == 3: return self.D
+        else: raise IndexError(f"Trying to perform out of bounds move {idx}")
+
+MOVES = Moves_class()
 class Board:
+    '''Represents a state of the game board'''
     def __init__(self, data: str) -> None:
+        '''Add the first row to the board'''
         self.board = []
         self.add_row(data)
 
     def add_row(self, data: str) -> None:
+        '''Append rows to the board'''
         row = map(int, data.split())
         self.board.append(list(row))
 
 
 class Game:
+    '''Represents the returned results about a game.
+    Upon receiving this object, the current game should be considered ended.'''
     def __init__(self, data: str) -> None:
         self.move = data.split()[3]
         self.move = int(self.move)
 
 
 class Result:
+    '''Represents the returned results of the interaction.
+    Upon receiving this object, the interaction should be considered closed.'''
     def __init__(self, data: str) -> None:
         self.point = data.split()[1][0: -1]
         self.point = int(self.point)
@@ -50,14 +67,18 @@ class ClientBuffer(deque):
         self.__sock = sock
         self.__stopped = Event()
         self.__loop = RepeatRun(self.__get_buffer, self.__stopped)
+        self.__loop.daemon = True
+        self.APIException = None
 
     def __append_line(self, line: str) -> None:
         if "ID" in line or "Identified" in line:
             return
         elif "Invalid" in line:
-            raise ValueError(f"You're dumb. The server responded with {line}")
+            self.__stopped.set()
+            self.APIException = ValueError(f"You're dumb. The server responded with {line}")
         elif "Timed" in line:
-            raise TimeoutError(f"You're too slow. The server responded with {line}")
+            self.__stopped.set()
+            self.APIException = TimeoutError(f"You're too slow. The server responded with {line}")
         elif "Game" in line:
             self.append(Game(line))
         elif "Score" in line:
@@ -104,9 +125,12 @@ class Client:
         self.__buffer.start_looping()
 
     def get_state(self) -> Board | Game | Result:
+        if self.__buffer.APIException is not None:
+            raise self.__buffer.APIException
         if not self.playing:
             raise IndexError("The game has finished")
         while len(self.__buffer) == 0:
+            print(self.__buffer.APIException)
             print("Waiting")
             sleep(0.5)
         if isinstance(self.__buffer[0], Result):
