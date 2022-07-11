@@ -20,9 +20,11 @@ with open("log.txt", "w", encoding="utf-8") as log:
             print(f"{data.board}\n{move}")
             client.make_move(move)
         elif isinstance(data, game.Game):
+            # Mot game da ket thuc
             log.write(f"Game ended. Moves: {data.move}")
             print("Game ended")
         elif isinstance(data, game.Result):
+            # Tro choi da ket thuc
             log.write(f"Session ended. Points: {data.point}")
             print("Session ended")
             break
