@@ -4,7 +4,6 @@ from time import sleep
 from typing import Callable
 from collections import deque
 from threading import Thread, Event
-import asyncio
 
 SERVER_IP = "112.137.129.136"
 SERVER_PORT = 1234
@@ -12,18 +11,21 @@ REFRESH_RATE = 0.05
 DEFAULT_TIMEOUT = 10.0
 DEFAULT_SLEEP = 0.1
 
-class Moves_class:
+
+class MoveClass: # pylint: disable=too-few-public-methods
     '''Represent moves that can be made'''
     L, U, R, D = "left", "up", "right", "down"
     ALL_MOVES = [L, R, U, D]
+
     def __getitem__(self, idx: int) -> str:
         '''Return moves based on index given'''
         return self.ALL_MOVES[idx]
 
-MOVES = Moves_class()
+
+MOVES = MoveClass()
 
 
-class Board:
+class Board: # pylint: disable=too-few-public-methods
     '''Represents a state of the game board'''
 
     def __init__(self, data: str) -> None:
@@ -37,9 +39,11 @@ class Board:
         self.board.append(list(row))
 
     def full(self) -> bool:
+        '''Returns whether the board is fully filled'''
         return len(self.board[0]) == len(self.board)
 
-class Game:
+
+class Game: # pylint: disable=too-few-public-methods
     '''Represents the returned results about a game.
     Upon receiving this object, the current game should be considered ended.'''
 
@@ -49,7 +53,7 @@ class Game:
         self.move = int(self.move)
 
 
-class Result:
+class Result: # pylint: disable=too-few-public-methods
     '''Represents the returned results of the interaction.
     Upon receiving this object, the interaction should be considered closed.'''
 
@@ -61,6 +65,7 @@ class Result:
 
 class RepeatRun(Thread):
     '''Class to repeatedly run a function'''
+
     def run(self) -> None:
         '''Runs the loop'''
         while not self.__stopped.wait(REFRESH_RATE):
@@ -76,6 +81,7 @@ class RepeatRun(Thread):
 class ClientBuffer(deque):
     '''The Buffer of a Client.
     Updates every few moments and push all data to a FIFO queue'''
+
     def __init__(self, sock: socket.socket) -> None:
         '''Initializes the loop and runs it'''
         super().__init__()
@@ -83,19 +89,19 @@ class ClientBuffer(deque):
         self.__stopped = Event()
         self.__loop = RepeatRun(self.__get_buffer, self.__stopped)
         self.__loop.daemon = True
-        self.APIException = None
+        self.api_exception = None
 
     def __append_line(self, line: str) -> None:
         '''Appends a line from buffer to the FIFO queue'''
         if "Invalid" in line:
             self.__stopped.set()
-            self.APIException = ValueError(
+            self.api_exception = ValueError(
                 f"You're dumb. The server responded with {line}")
         elif "ID" in line or "Identified" in line:
             return
         elif "Timed" in line:
             self.__stopped.set()
-            self.APIException = TimeoutError(
+            self.api_exception = TimeoutError(
                 f"You're too slow. The server responded with {line}")
         elif "Game" in line:
             self.append(Game(line))
@@ -103,7 +109,7 @@ class ClientBuffer(deque):
             self.append(Result(line))
             self.__stopped.set()
         else:
-            if self.__len__() and isinstance(self[-1], Board) and not self[-1].full():
+            if len(self) and isinstance(self[-1], Board) and not self[-1].full():
                 self[-1].add_row(line)
             else:
                 self.append(Board(line))
@@ -112,7 +118,8 @@ class ClientBuffer(deque):
         '''Get the current buffer and flushes it to the FIFO queue.
         This function should be called every few moments.'''
         new_data = self.__sock.recv(1024).decode()
-        if new_data == "": return
+        if new_data == "":
+            return
         for line in new_data.splitlines():
             self.__append_line(line)
 
@@ -133,13 +140,13 @@ class Client:
         self.__raw_send(self.quiz)
 
     def __init__(self, account_name: str, quiz_name: str,
-                 ip: str = SERVER_IP, port: str = SERVER_PORT, timeout: float = DEFAULT_TIMEOUT) -> None:
+                 connect_ip: str = SERVER_IP, port: str = SERVER_PORT) -> None:
         '''Initializes the session with the specified account name and quiz name'''
         self.__sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.__sock.connect((SERVER_IP, SERVER_PORT))
+        self.__sock.connect((connect_ip, port))
         self.playing = True
 
-        self.account, self.quiz, self.timeout = account_name, quiz_name, timeout
+        self.account, self.quiz = account_name, quiz_name
         self.__login()
 
         self.__buffer = ClientBuffer(self.__sock)
@@ -147,12 +154,15 @@ class Client:
 
     def get_state(self) -> Board | Game | Result:
         '''Get the first state from the FIFO queue'''
-        steps = int(self.timeout/DEFAULT_SLEEP)
+        steps = int(DEFAULT_TIMEOUT/DEFAULT_SLEEP)
         for _ in range(steps):
-            if self.__buffer.APIException != None: raise self.__buffer.APIException
-            if not self.playing: raise IndexError("The game has finished")
+            if self.__buffer.api_exception is not None:
+                raise self.__buffer.api_exception
+            if not self.playing:
+                raise IndexError("The game has finished")
 
-            if len(self.__buffer): break
+            if len(self.__buffer):
+                break
             sleep(DEFAULT_SLEEP)
         else:
             raise TimeoutError(
@@ -162,3 +172,7 @@ waiting for {steps*DEFAULT_SLEEP}s. Have you made any move?")
         if isinstance(self.__buffer[0], Result):
             self.playing = False
         return self.__buffer.popleft()
+
+    def make_move(self, data: str) -> None:
+        '''Perform a move'''
+        self.__raw_send(data)

@@ -1,14 +1,14 @@
-from numpy import isin
-import game
+'''Test code'''
 import random
+import game
 account = input("ACCOUNT: ")
 quiz = input("QUIZ NAME (1, 2, 3): ")
 
 client = game.Client(account, quiz)
-# Code chi choi 1 game. 
-# De choi duoc nhieu game, can phai kiem tra xem 
+# Code chi choi 1 game.
+# De choi duoc nhieu game, can phai kiem tra xem
 # bang hien tai co phai ket thuc khong
-with open("log.txt", "w") as log:
+with open("log.txt", "w", encoding="utf-8") as log:
     while client.playing:
         data = client.get_state()
         if isinstance(data, game.Board):
