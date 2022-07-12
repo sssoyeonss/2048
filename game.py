@@ -10,6 +10,7 @@ SERVER_PORT = 1234
 REFRESH_RATE = 0.05
 DEFAULT_TIMEOUT = 10.0
 DEFAULT_SLEEP = 0.1
+SOCKET_BUFFER_SIZE = 1024
 
 
 class MoveClass: # pylint: disable=too-few-public-methods
@@ -117,7 +118,7 @@ class ClientBuffer(deque):
     def __get_buffer(self) -> None:
         '''Get the current buffer and flushes it to the FIFO queue.
         This function should be called every few moments.'''
-        new_data = self.__sock.recv(1024).decode()
+        new_data = self.__sock.recv(SOCKET_BUFFER_SIZE).decode()
         if new_data == "":
             return
         for line in new_data.splitlines():
@@ -141,7 +142,9 @@ class Client:
 
     def __init__(self, account_name: str, quiz_name: str,
                  connect_ip: str = SERVER_IP, port: str = SERVER_PORT) -> None:
-        '''Initializes the session with the specified account name and quiz name'''
+        '''Initializes the session with the specified account name and quiz name.
+        Be sure that you don't make the server sends more than 1024 characters per 50ms.
+        If for some reason you do, edit the SOCKET_BUFFER_SIZE constant.'''
         self.__sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.__sock.connect((connect_ip, port))
         self.playing = True
@@ -153,7 +156,7 @@ class Client:
         self.__buffer.start_looping()
 
     def get_state(self) -> Board | Game | Result:
-        '''Get the first state from the FIFO queue'''
+        '''Get the first state from the FIFO queue.'''
         steps = int(DEFAULT_TIMEOUT/DEFAULT_SLEEP)
         for _ in range(steps):
             if self.__buffer.api_exception is not None:
@@ -174,5 +177,5 @@ waiting for {steps*DEFAULT_SLEEP}s. Have you made any move?")
         return self.__buffer.popleft()
 
     def make_move(self, data: str) -> None:
-        '''Perform a move'''
+        '''Perform a move.'''
         self.__raw_send(data)
