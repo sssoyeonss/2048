@@ -17,6 +17,7 @@ The get_state functions gets data from a deque, each object corresponds to a res
 
 The is_playing attribute of a Client is the state of the game (opening or closed). It is False when the Client recieves a Result (signifies game termination).
 
+The Moves object gives you a way to use moves as objects in a list (left, up, right, down). Refer to test.py for more info.
 ### Data types
 
 Board: A state of the game, with attribute .board - a 4x4 or 6x6 list of ints.

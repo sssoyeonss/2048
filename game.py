@@ -14,7 +14,7 @@ SOCKET_BUFFER_SIZE = 1024
 
 
 class MoveClass: # pylint: disable=too-few-public-methods
-    '''Represent moves that can be made'''
+    '''Represent moves that can be made (left, up, right, down)'''
     L, U, R, D = "left", "up", "right", "down"
     ALL_MOVES = [L, U, R, D]
 
