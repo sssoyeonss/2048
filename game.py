@@ -16,10 +16,10 @@ SOCKET_BUFFER_SIZE = 1024
 class MoveClass: # pylint: disable=too-few-public-methods
     '''Represent moves that can be made'''
     L, U, R, D = "left", "up", "right", "down"
-    ALL_MOVES = [L, R, U, D]
+    ALL_MOVES = [L, U, R, D]
 
     def __getitem__(self, idx: int) -> str:
-        '''Return moves based on index given'''
+        '''Return moves based on index given (left, up, right, down).'''
         return self.ALL_MOVES[idx]
 
 
