@@ -21,6 +21,9 @@ class MoveClass: # pylint: disable=too-few-public-methods
     def __getitem__(self, idx: int) -> str:
         '''Return moves based on index given (left, up, right, down).'''
         return self.ALL_MOVES[idx]
+    
+    def __iter__(self):
+        for i in self.ALL_MOVES: yield i
 
 
 MOVES = MoveClass()
