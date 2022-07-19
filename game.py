@@ -144,10 +144,12 @@ class Client:
         self.__raw_send(self.quiz)
 
     def __init__(self, account_name: str, quiz_name: str,
-                 connect_ip: str = SERVER_IP, port: str = SERVER_PORT) -> None:
+                 connect_ip: str = SERVER_IP, port: str = SERVER_PORT,
+                 warn: bool = True) -> None:
         '''Initializes the session with the specified account name and quiz name.
         Be sure that you don't make the server sends more than 1024 characters per 50ms.
-        If for some reason you do, edit the SOCKET_BUFFER_SIZE constant.'''
+        If for some reason you do, edit the SOCKET_BUFFER_SIZE constant.
+        The warn argument specifies whether to print a warning if the queue has >= 2 boards'''
         self.__sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.__sock.connect((connect_ip, port))
         self.playing = True
@@ -157,6 +159,7 @@ class Client:
 
         self.__buffer = ClientBuffer(self.__sock)
         self.__buffer.start_looping()
+        self.warn = warn
 
     def get_state(self) -> Board | Game | Result:
         '''Get the first state from the FIFO queue.'''
@@ -174,7 +177,11 @@ class Client:
             raise TimeoutError(
                 f"Unable to retrieve any data after \
 waiting for {steps*DEFAULT_SLEEP}s. Have you made any move?")
-
+        if self.warn and len(self.__buffer) >= 2:
+            if isinstance(self.__buffer[0], Board) and isinstance(self.__buffer[1], Board):
+                raise RuntimeWarning('''You're making moves blindedly.
+Make sure you don't try to make a move based on the ending board of a game.
+To supress this, set the warn argument to False''')
         if isinstance(self.__buffer[0], Result):
             self.playing = False
         return self.__buffer.popleft()
