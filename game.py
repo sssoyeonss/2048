@@ -1,4 +1,5 @@
 '''Library for interacting with 2048 server'''
+from copy import deepcopy
 import socket
 from time import sleep
 from typing import Callable
@@ -14,7 +15,7 @@ SOCKET_BUFFER_SIZE = 1024
 
 
 class MoveClass: # pylint: disable=too-few-public-methods
-    '''Represent moves that can be made (left, up, right, down)'''
+    '''Represent moves that can be made (up, down, left, right)'''
     L, U, R, D = "left", "up", "right", "down"
     ALL_MOVES = [L, U, R, D]
 
@@ -41,7 +42,7 @@ class Board: # pylint: disable=too-few-public-methods
         '''Append rows to the board'''
         row = map(int, data.split())
         self.board.append(list(row))
-
+    
     def full(self) -> bool:
         '''Returns whether the board is fully filled'''
         return len(self.board[0]) == len(self.board)
